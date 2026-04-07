@@ -1,4 +1,4 @@
-export const HealthBar = ({
+const HealthBar = ({
   label,
   health,
   color,
@@ -20,3 +20,5 @@ export const HealthBar = ({
     <p className="text-sm font-black mt-2 text-gray-700">{health}%</p>
   </div>
 );
+
+export default HealthBar;

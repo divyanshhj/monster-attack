@@ -1,68 +1,98 @@
-import React, { useState, useEffect } from "react";
-import { GameCard } from "../components/ui/GameCard";
-import { HealthBar } from "../components/ui/HealthBar";
-import { GameButton } from "../components/ui/Button";
+import { useState } from "react";
+import GameCard from "../components/ui/GameCard";
+import HealthBar from "../components/ui/HealthBar";
+import GameButton from "../components/ui/Button";
 import LogsComponent, { type Log } from "../components/monster/LogsComponent";
 import { getRandom } from "../utils/helpers";
+import type { ActionType, GameStatus, LogType } from "../types/game";
 
-type GameStatus = "idle" | "playing" | "won" | "lost";
-type ActionType = "attack" | "special" | "heal";
-type LogType = "player" | "monster";
+const GAME_CONFIG = {
+  INITIAL_HEALTH: 100,
+  MAX_HEALTH: 100,
+  HEAL_VALUE: 10,
+  ATTACK_MIN: 1,
+  ATTACK_MAX: 10,
+  SPECIAL_MIN: 10,
+  SPECIAL_MAX: 20,
+  MONSTER_MIN: 1,
+  MONSTER_MAX: 20,
+};
 
-interface ActionButtonProps {
-  label: string;
-  color: string;
-  onClick: () => void;
-  disabled?: boolean;
-}
+const ACTION_BUTTONS: { label: string; type: ActionType; color: string }[] = [
+  { label: "ATTACK", type: "attack", color: "bg-orange-500" },
+  { label: "SPECIAL", type: "special", color: "bg-purple-600" },
+  { label: "HEAL", type: "heal", color: "bg-green-600" },
+  { label: "GIVE UP", type: "giveup", color: "bg-slate-400" },
+];
 
-const MonsterAttack: React.FC = () => {
-  const [playerHealth, setPlayerHealth] = useState<number>(100);
-  const [monsterHealth, setMonsterHealth] = useState<number>(100);
+const MonsterAttack = () => {
+  const [playerHealth, setPlayerHealth] = useState<number>(
+    GAME_CONFIG.INITIAL_HEALTH,
+  );
+  const [monsterHealth, setMonsterHealth] = useState<number>(
+    GAME_CONFIG.INITIAL_HEALTH,
+  );
   const [status, setStatus] = useState<GameStatus>("idle");
   const [logs, setLogs] = useState<Log[]>([]);
-
-  useEffect(() => {
-    if (status !== "playing") return;
-    if (monsterHealth <= 0) setStatus("won");
-    else if (playerHealth <= 0) setStatus("lost");
-  }, [monsterHealth, playerHealth, status]);
 
   const addLog = (msg: string, type: LogType) => {
     setLogs((prev) => [{ id: Math.random(), msg, type }, ...prev]);
   };
 
-  const resetGame = () => {
-    setPlayerHealth(100);
-    setMonsterHealth(100);
+  const resetGame = (newStatus: GameStatus) => {
+    setPlayerHealth(GAME_CONFIG.INITIAL_HEALTH);
+    setMonsterHealth(GAME_CONFIG.INITIAL_HEALTH);
     setLogs([]);
-    setStatus("playing");
+    setStatus(newStatus);
   };
 
   const executeMonsterTurn = () => {
-    const dmg = getRandom(1, 20);
-    setPlayerHealth((prev) => Math.max(prev - dmg, 0));
+    const dmg = getRandom(GAME_CONFIG.MONSTER_MIN, GAME_CONFIG.MONSTER_MAX);
+    setPlayerHealth((prev) => {
+      const newHealth = Math.max(prev - dmg, 0);
+
+      if (newHealth <= 0) {
+        setStatus("lost");
+      }
+
+      return newHealth;
+    });
     addLog(`Monster hits Player for ${dmg}%`, "monster");
   };
 
   const handleAction = (type: ActionType): void => {
-    let currentMonsterHealth = monsterHealth;
+    if (type === "giveup") {
+      resetGame("idle");
+      return;
+    }
 
     if (type === "heal") {
-      const healValue = 10;
-      setPlayerHealth((prev) => Math.min(prev + healValue, 100));
+      const healValue = GAME_CONFIG.HEAL_VALUE;
+
+      setPlayerHealth((prev) =>
+        Math.min(prev + healValue, GAME_CONFIG.MAX_HEALTH),
+      );
+
       addLog(`Player heals for ${healValue}%`, "player");
-    } else {
-      const dmg = type === "attack" ? getRandom(1, 10) : getRandom(10, 20);
-      const newHealth = Math.max(monsterHealth - dmg, 0);
-      setMonsterHealth(newHealth);
-      currentMonsterHealth = newHealth;
-      addLog(`Player ${type}s for ${dmg}%`, "player");
+      executeMonsterTurn();
+      return;
     }
 
-    if (currentMonsterHealth > 0) {
-      executeMonsterTurn();
+    const dmg =
+      type === "attack"
+        ? getRandom(GAME_CONFIG.ATTACK_MIN, GAME_CONFIG.ATTACK_MAX)
+        : getRandom(GAME_CONFIG.SPECIAL_MIN, GAME_CONFIG.SPECIAL_MAX);
+
+    const newHealth = Math.max(monsterHealth - dmg, 0);
+
+    setMonsterHealth(newHealth);
+    addLog(`Player ${type}s for ${dmg}%`, "player");
+
+    if (newHealth <= 0) {
+      setStatus("won");
+      return;
     }
+    executeMonsterTurn();
   };
 
   return (
@@ -80,7 +110,7 @@ const MonsterAttack: React.FC = () => {
         <div className="flex flex-col items-center gap-6">
           {status !== "playing" ? (
             <div className="text-center">
-              {status !== "idle" && (
+              {(status === "won" || status === "lost") && (
                 <h2
                   className={`text-4xl font-black mb-6 uppercase italic ${status === "won" ? "text-emerald-600" : "text-rose-600"}`}
                 >
@@ -88,7 +118,7 @@ const MonsterAttack: React.FC = () => {
                 </h2>
               )}
               <GameButton
-                onClick={resetGame}
+                onClick={() => resetGame("playing")}
                 className="bg-indigo-600 text-white px-16 py-4 rounded-full text-xl"
               >
                 {status === "idle" ? "START GAME" : "RETRY"}
@@ -96,49 +126,33 @@ const MonsterAttack: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 w-full">
-              <ActionButton
-                label="ATTACK"
-                color="bg-orange-500"
-                onClick={() => handleAction("attack")}
-              />
-              <ActionButton
-                label="SPECIAL"
-                color="bg-purple-600"
-                onClick={() => handleAction("special")}
-                disabled={playerHealth <= 90}
-              />
-              <ActionButton
-                label="HEAL"
-                color="bg-green-600"
-                onClick={() => handleAction("heal")}
-              />
-              <ActionButton
-                label="GIVE UP"
-                color="bg-slate-400"
-                onClick={() => setStatus("idle")}
-              />
+              {ACTION_BUTTONS.map((btn) => {
+                const isSpecialDisabled =
+                  btn.type === "special" && playerHealth <= 90;
+
+                return (
+                  <GameButton
+                    key={btn.type}
+                    onClick={() => handleAction(btn.type)}
+                    className={`${btn.color} text-white`}
+                    disabled={isSpecialDisabled}
+                    title={
+                      isSpecialDisabled
+                        ? "Special attack available only above 90% health"
+                        : ""
+                    }
+                  >
+                    {btn.label}
+                  </GameButton>
+                );
+              })}
             </div>
           )}
         </div>
-        <LogsComponent logs={logs} />
+        {status !== "idle" && <LogsComponent logs={logs} />}
       </GameCard>
     </div>
   );
 };
-
-const ActionButton = ({
-  label,
-  color,
-  onClick,
-  disabled = false,
-}: ActionButtonProps) => (
-  <GameButton
-    onClick={onClick}
-    disabled={disabled}
-    className={`${color} text-white`}
-  >
-    {label}
-  </GameButton>
-);
 
 export default MonsterAttack;

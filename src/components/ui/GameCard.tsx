@@ -1,4 +1,4 @@
-export const GameCard = ({
+const GameCard = ({
   children,
   title,
 }: {
@@ -12,3 +12,5 @@ export const GameCard = ({
     {children}
   </div>
 );
+
+export default GameCard;
