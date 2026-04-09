@@ -24,7 +24,6 @@ const ACTION_BUTTONS: { label: string; type: ActionType; color: string }[] = [
   { label: "HEAL", type: "heal", color: "bg-green-600" },
   { label: "GIVE UP", type: "giveup", color: "bg-slate-400" },
 ];
-
 const MonsterAttack = () => {
   const [playerHealth, setPlayerHealth] = useState<number>(
     GAME_CONFIG.INITIAL_HEALTH,
@@ -33,16 +32,26 @@ const MonsterAttack = () => {
     GAME_CONFIG.INITIAL_HEALTH,
   );
   const [status, setStatus] = useState<GameStatus>("idle");
-  const [logs, setLogs] = useState<Log[]>([]);
+  const [logs, setLogs] = useState<{
+    playerLogs: Log[];
+    monsterLogs: Log[];
+  }>({ playerLogs: [], monsterLogs: [] });
 
   const addLog = (msg: string, type: LogType) => {
-    setLogs((prev) => [{ id: Math.random(), msg, type }, ...prev]);
+    setLogs((prev) => {
+      const newLog: Log = { id: Math.random(), msg, type };
+      if (type === "player") {
+        return { ...prev, playerLogs: [newLog, ...prev.playerLogs] };
+      } else {
+        return { ...prev, monsterLogs: [newLog, ...prev.monsterLogs] };
+      }
+    });
   };
 
   const resetGame = (newStatus: GameStatus) => {
     setPlayerHealth(GAME_CONFIG.INITIAL_HEALTH);
     setMonsterHealth(GAME_CONFIG.INITIAL_HEALTH);
-    setLogs([]);
+    setLogs({ playerLogs: [], monsterLogs: [] });
     setStatus(newStatus);
   };
 
